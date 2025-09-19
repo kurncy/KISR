@@ -2,7 +2,7 @@
 
 Native Swift implementation of the Kaspa Invitation Standard (KISR) per PRD. Provides APIs to create and redeem invitations with encrypted envelopes anchored on-chain.
 
-- Spec: `@KISR/PRD.md`
+- Spec: `@KISR/KISR.md`
 - Deeplink: `kaspa:address/redeem?code=KISR-XXXXXXXX&txid=<hex>` (address optional)
 - Envelope: `KISR-` prefix, version 0x01, Argon2id key derivation, XChaCha20-Poly1305-ietf AEAD
 
