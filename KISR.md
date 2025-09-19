@@ -22,7 +22,7 @@ KISR defines a simple, secure, and interoperable invitation flow to transfer Kas
 - One standard for both worlds: This approach is how KISR satisfies both decentralized and centralized use cases with a single, portable specification.
 
 ## 2. Goals
-- Minimal steps: 2-step invitation, 2-step redemption
+- Minimal steps: 2-step invitation, 2-step redemption.
 - Interoperable: Works across all Kaspa wallets and platforms
 - Secure by default: Resistant to tampering, replay, and online interception
 - Self-contained: No server trust or centralized database; no PII stored on-chain
