@@ -10,4 +10,3 @@ Open-source reference implementation and specs for KISR.
 
 ## License
 MIT
-# KISR
