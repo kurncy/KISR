@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+coverage/
+dist/
+build/
+
+# Android/Gradle
+**/.gradle/
+**/local.properties
+**/build/
+**/.cxx/
+**/.externalNativeBuild/
+**/captures/
+**/*.iml
+**/.idea/
+
+# Java/Kotlin
+**/.classpath
+**/.project
+**/.settings/
+**/.kotlin/
+
+# Logs
+*.log
+
+# Misc
+.env
+.env.*
