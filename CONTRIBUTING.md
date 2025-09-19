@@ -13,4 +13,4 @@ Thanks for your interest in contributing!
 - JS examples in `@KISR/js/`
 
 ## License
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the MIT License
