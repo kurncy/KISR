@@ -39,14 +39,33 @@ KISR defines a simple, secure, and interoperable invitation flow to transfer Kas
 - KISR Signature (KISRSign): A pre-signature over the KISR UTXO input using Sighash None | ANYONECANPAY.
 - KISR Anchor Tx (KISRTXID): A self-transaction anchoring the encrypted payload to the Kaspa DAG. The transaction payload contains the encrypted envelope.
 
-## 5. User Flows
-### 5.0 User Stories
+## 5. Deeplink and QR
+- URI scheme: `kaspa:redeem?code=KISR-XXXXXXXX&txid=<hex>`
+- Alternate format including inviter address (optional): `kaspa:<inviterAddress>/redeem?code=KISR-XXXXXXXX&txid=<hex>`
+- Alternate format for QR payloads: JSON `{ "code": "KISR-XXXXXXXX", "txid": "..." }`
+- Wallets SHOULD support both; URLs may be wrapped by apps per platform conventions
+- 
+## 6. Security Considerations
+- Code space: 30-character alphabet over 8 chars → 30^8 ≈ 6.56e11 combos; Argon2id settings add significant cost to offline guessing.
+- Pre-signature: Sighash None | ANYONECANPAY binds only to the provided input, preventing input replacement and allowing the redeemer to select outputs safely.
+- Anchor privacy: Payload is opaque; only KISR prefix and small header are cleartext. No PII on-chain.
+- Replay: On successful redemption, the UTXO becomes spent; replay attempts fail naturally.
+- Memo: Treat as public. Wallets SHOULD warn users that memos are on-chain (encrypted but not confidential to the code holder if code is shared).
+
+## 7. SDK
+- JS (Node/Browser with WASM): reference implementation provided in this repo under `@KISR/js`
+- iOS (Swift): KISR module exposing `createInvite` and `redeemInvite`, with native Sodium for encryption and Kaspa networking via WASM or platform SDK
+- Android (Kotlin): analogous to iOS; JNI-backed libsodium; Kaspa networking via WASM or platform SDK
+- Deeplink/QR helpers for sharing and parsing `kaspa:` URIs
+
+## 8. User Flows
+### 8.0 User Stories
 - Alice (inviter): Wants to gift KAS to her friend Bob who does not have a wallet yet. Alice creates an invite in two taps, shares a `kaspa:` deeplink or QR containing `{ code, txid }`, and can cancel at any time by spending the dedicated UTXO back to herself.
 - Bob (new user): Installs any compatible Kaspa wallet, scans the QR or opens the deeplink, confirms his destination address, and redeems the invite in one confirmation screen.
 - Charlie (merchant/promoter): Prepares a batch of small invites to hand out at an event via printed QR cards. Invites are permissionless, do not require a server account, and no need to reclaim later if unused.
 - Dana (support/ops): Audits outstanding invites by checking their referenced UTXOs on-chain, cancels stale ones by compounding UTXOs, without touching user private keys.
 
-### 5.1 Detailed Sequence — Invitation
+### 8.1 Detailed Sequence — Invitation
 - Precondition: Inviter has spendable UTXOs and a synced node connection.
 - Steps:
   1. Wallet constructs a single-output self-transfer to create the KISRUTXO for the chosen amount; broadcast and wait for DAG acceptance if required by policy.
@@ -57,7 +76,7 @@ KISR defines a simple, secure, and interoperable invitation flow to transfer Kas
   6. Wallet anchors the envelope by sending a self-transaction with the envelope in the payload field (excluding the KISRUTXO as an input to this anchor).
   7. Output to share: `{ code, txid }` where `txid` is the anchor transaction id.
 
-### 5.2 Detailed Sequence — Redemption
+### 8.2 Detailed Sequence — Redemption
 - Precondition: Redeemer controls a destination address on the target network (mainnet `kaspa:` or testnet-10).
 - Steps:
   1. Parse deeplink/QR to extract `{ code, txid }`.
@@ -69,15 +88,15 @@ KISR defines a simple, secure, and interoperable invitation flow to transfer Kas
   7. Estimate fee using network estimator; ensure fee < amount; adjust change/output if necessary per wallet policy.
   8. Broadcast redemption; return final transaction id; mark invite as redeemed once the UTXO is observed spent.
 
-## 6. Technical Architecture
+## 9. Technical Architecture
 - Core examples implementation in NodeJS using Rusty-Kaspa WASM bindings (RpcClient, UTXO inspection, transaction building/signing, submission)
 - Encryption implemented with libsodium-wrappers-sumo in JS; analogous modules expected in Swift (Sodium) and Kotlin (libsodium/jni)
 - Clear separation:
   - WASM/Kaspa networking: platform-agnostic module
   - Encryption: platform-native modules that implement the same envelope format
 
-## 7. Data Formats
-### 7.1 Envelope
+## 10. Data Formats
+### 10.1 Envelope
 - Prefix: ASCII `KISR-` (5 bytes, cleartext)
 - Version: 1 byte (0x01)
 - Salt: 16 bytes
@@ -93,7 +112,7 @@ Key derivation: Argon2id with parameters
 
 Cipher: XChaCha20-Poly1305-ietf (libsodium `crypto_aead_xchacha20poly1305_ietf_*`)
 
-### 7.2 TLV payload
+### 10.2 TLV payload
 - 0x01: Outpoint (36 bytes, txid LE32 || index u32 LE)
 - 0x02: Pre-signature bytes (hex-decoded)
 - 0x03: Sighash flags (1 byte). Default 0x82 (None | ANYONECANPAY)
@@ -103,12 +122,12 @@ Cipher: XChaCha20-Poly1305-ietf (libsodium `crypto_aead_xchacha20poly1305_ietf_*
 - 0x07: Timestamp (u64 LE seconds)
 - 0x08: Memo (utf8)
 
-### 7.3 Identifiers
+### 10.3 Identifiers
 - KISR Code: `KISR-` + 8 chars from alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
 - KISRTXID: Standard Kaspa transaction id (hex)
 
-## 8. Protocol Operations (Normative)
-### 8.1 Create Invitation
+## 11. Protocol Operations (Normative)
+### 11.1 Create Invitation
 - Input: Sender private key, desired amount, optional fee, optional memo
 - Steps:
   1. Create UTXO to self for the amount (single dedicated output)
@@ -118,7 +137,7 @@ Cipher: XChaCha20-Poly1305-ietf (libsodium `crypto_aead_xchacha20poly1305_ietf_*
   5. Anchor payload by sending a self-transfer with the envelope in tx payload; exclude the dedicated UTXO as input for the anchor
   6. Output shareable object: `{ code, txid }`
 
-### 8.2 Redeem Invitation
+### 11.2 Redeem Invitation
 - Input: `{ code, txid }`, destination address
 - Steps:
   1. Fetch anchor transaction by `txid` and read its payload
@@ -127,13 +146,13 @@ Cipher: XChaCha20-Poly1305-ietf (libsodium `crypto_aead_xchacha20poly1305_ietf_*
   4. Assemble redemption tx using the pre-signed input, add a single output to the destination address (amount minus fees)
   5. Broadcast and return final transaction id
 
-### 8.3 Cancel Invitation
+### 11.3 Cancel Invitation
 - Input: Inviter’s wallet keys
 - Steps:
   1. In the wallet, use Generator to Compound UTXOs to self, ensuring the KISRUTXO is included.
   2. Broadcast. The invite is now invalid since the referenced input is spent.
 
-## 9. Validation and Error Handling
+## 12. Validation and Error Handling
 - Node connectivity: require RPC server info shows `isSynced` true
 - UTXO discovery: retry with small backoff up to 10s total
 - Fee calculation: use kaspa network fee estimator; reject if fee exceeds input
@@ -141,57 +160,16 @@ Cipher: XChaCha20-Poly1305-ietf (libsodium `crypto_aead_xchacha20poly1305_ietf_*
 - Network mismatch: must match address network
 - Safety: never reveal private keys or decrypted payload in logs
 
-## 10. Security Considerations
-- Code space: 30-character alphabet over 8 chars → 30^8 ≈ 6.56e11 combos; Argon2id settings add significant cost to offline guessing.
-- Pre-signature: Sighash None | ANYONECANPAY binds only to the provided input, preventing input replacement and allowing the redeemer to select outputs safely.
-- Anchor privacy: Payload is opaque; only KISR prefix and small header are cleartext. No PII on-chain.
-- Replay: On successful redemption, the UTXO becomes spent; replay attempts fail naturally.
-- Memo: Treat as public. Wallets SHOULD warn users that memos are on-chain (encrypted but not confidential to the code holder if code is shared).
-
-## 11. SDK Deliverables
-- JS (Node/Browser with WASM): reference implementation provided in this repo under `@KISR/js`
-- iOS (Swift): KISR module exposing `createInvite` and `redeemInvite`, with native Sodium for encryption and Kaspa networking via WASM or platform SDK
-- Android (Kotlin): analogous to iOS; JNI-backed libsodium; Kaspa networking via WASM or platform SDK
-- Deeplink/QR helpers for sharing and parsing `kaspa:` URIs
-
-## 12. Deeplink and QR
-- URI scheme: `kaspa:redeem?code=KISR-XXXXXXXX&txid=<hex>`
-- Alternate format including inviter address (optional): `kaspa:<inviterAddress>/redeem?code=KISR-XXXXXXXX&txid=<hex>`
-- Alternate format for QR payloads: JSON `{ "code": "KISR-XXXXXXXX", "txid": "..." }`
-- Wallets SHOULD support both; URLs may be wrapped by apps per platform conventions
-
-## 13. Open API (Optional)
-For server-assisted wallets, provide an Express router with the following endpoints (no persistence):
-- POST `/invite/create` → { code, anchor.txid, utxo, presig }
-- POST `/invite/redeem` → { transactionId }
-- POST `/generate-code` → { code }
-- POST `/fetch-payload` → { payloadHex, outputs }
-- POST `/decrypt-kis-payload` → { decrypted }
-- POST `/assemble-and-broadcast-redemption` → { transactionId }
-
-## 14. Telemetry and Analytics
+## 13. Telemetry and Analytics
 - None required. Implementers MAY add opt-in anonymized metrics, never storing invite codes or raw payloads.
 
-## 15. Licensing
+## 14. Licensing
 - Open source; MIT license recommended.
 
-## 16. Risks and Mitigations
-- Weak user-chosen codes: default to random generation; UI SHOULD discourage predictable seeds
-- API dependency: recommend multiple RPC endpoints and exponential backoff
-- Platform parity: keep envelope and TLVs identical across JS/Swift/Kotlin
-
-## 17. Acceptance Criteria
-- Any wallet implementing this spec can:
-  - Create a valid invitation in ≤2 steps
-  - Redeem a valid invitation in ≤2 steps
-  - Interoperate with other conforming wallets (cross-app invite→redeem)
-  - Handle mainnet and testnet-10 consistently
-
-## 18. Versioning
+## 15. Versioning
 - Envelope version: 0x01
-- This PRD: v1.0.0
 
-## 19. Extensibility and Reuse (KRC-20 Tokens, KRC-721 NFTs)
+## 16. Extensibility and Reuse (KRC-20 Tokens, KRC-721 NFTs)
 - KISR is transport-agnostic for assets; wallets MAY extend the TLV with asset descriptors while keeping the envelope and security model unchanged.
 - Suggested reserved TLV range for assets: `0x20–0x2F`.
   - 0x20: Asset type (0 = KAS, 20 = KRC-20, 21 = KRC-721)
